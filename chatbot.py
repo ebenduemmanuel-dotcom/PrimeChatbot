@@ -1,0 +1,33 @@
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+from peft import PeftModel
+
+BASE_MODEL = "LiquidAI/LFM2.5-1.2B-Instruct"
+ADAPTER_PATH = "./prime_robotics"
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+tokenizer = AutoTokenizer.from_pretrained(ADAPTER_PATH)
+base_model = AutoModelForCausalLM.from_pretrained(
+    BASE_MODEL,
+    dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+)
+
+model = PeftModel.from_pretrained(base_model, ADAPTER_PATH)
+model.to(device)
+model.eval()
+
+def chatbot(prompt: str) -> str:
+    input = tokenizer(prompt, return_tensors='pt').to(device)
+
+
+    with torch.no_grad():
+        output = model.generate(
+            **input,
+            max_new_tokens=50,
+            tempreture = 0.5,
+            do_sample=True,
+            top_k=0.9
+        )
+        response = tokenizer.decode(output[0], skip_special_tokens=True)
+        return response
